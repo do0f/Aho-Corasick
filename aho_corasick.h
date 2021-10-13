@@ -15,8 +15,11 @@ class AhoCorasick
 {
 public:
 	//dictionary is set of strings algorithm is looking for in text 
-	AhoCorasick(const std::initializer_list<const CharType*> dictionary): dictionary_size(dictionary.size()), trie(dictionary)
+	AhoCorasick(const std::vector<const CharType*>& dictionary): dictionary_size(dictionary.size()), trie(dictionary)
 	{
+		dictionary_string_sizes.reserve(dictionary.size());
+		for (auto string : dictionary)
+			dictionary_string_sizes.push_back(std::char_traits<CharType>::length(string));
 	}
 	//fuction for finding all entries of dictionaru string in input string
 	//return deque of dictionary_size elements, filled with vector of entries for each string in dictionary, respectively
@@ -32,7 +35,10 @@ public:
 			//if current state is the end of any string in dictionary,
 			//push the index of symbol where string was found to corresponding vector
 			if (state->end_of_string)
-				entries[state->end_of_string - 1].push_back(i);
+			{
+				const auto str_dictionary_index = state->end_of_string - 1;
+				entries[str_dictionary_index].push_back(i + 1 - dictionary_string_sizes[str_dictionary_index]);
+			}
 			
 			//if in the same state there are more strings found, dictionary suffix link will point on them
 			if (state->dict_suffix_link != nullptr)
@@ -40,7 +46,8 @@ public:
 				auto dict_found_state = state->dict_suffix_link;
 				do {
 					//get the string number from state and push it in the same index array
-					entries[dict_found_state->end_of_string - 1].push_back(i);
+					const auto str_dictionary_index = dict_found_state->end_of_string - 1;
+					entries[str_dictionary_index].push_back(i + 1 - dictionary_string_sizes[str_dictionary_index]);
 					dict_found_state = dict_found_state->dict_suffix_link;
 				} while (dict_found_state != nullptr); //if there are more dictionary links, continue
 			}
@@ -58,12 +65,14 @@ private:
 	class Trie
 	{
 	public:
-		Trie(const std::initializer_list<const CharType*> dictionary) : root(nullptr, '\0') //construct root (no parent and path_symbol)
+		Trie(const std::vector<const CharType*>& dictionary) : root(nullptr, '\0') //construct root (no parent and path_symbol)
 		{
 			//add every element into trie
 			std::size_t string_num = 1;
 			for (auto str_pointer: dictionary)
 			{
+				if (str_pointer == nullptr)
+					throw std::invalid_argument("nullptr string pointer");
 				//for every character add node
 				//pass the pointer to string and string number that can be 1 ... dictionary_size
 				add_child(&root, str_pointer, string_num);
@@ -180,6 +189,7 @@ private:
 	};
 
 	std::size_t dictionary_size;
+	std::vector<std::size_t> dictionary_string_sizes;
 	//trie build in constructor for algorithm
 	Trie trie;
 };
